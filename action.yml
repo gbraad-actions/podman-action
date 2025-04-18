@@ -51,6 +51,7 @@ runs:
         while IFS= read -r line || [ -n "$line" ]; do
           [ -n "$line" ] && COMMAND="${COMMAND}${line};"
         done <<< "$RUN_COMMAND"
+        COMMAND="${COMMAND%;}"
         
         echo "Running command in container..."
         echo "Image: $IMAGE"
