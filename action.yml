@@ -46,31 +46,24 @@ runs:
           ENTRYPOINT_ARGS="--entrypoint $ENTRYPOINT"
         fi
         
-        # Process the command properly based on whether entrypoint is used
-        if [ ! -z "$ENTRYPOINT" ]; then
-          # When using custom entrypoint, don't convert newlines to semicolons
-          # Instead, create a temp script and mount it
-          TEMP_SCRIPT=$(mktemp)
-          echo "$RUN_COMMAND" > "$TEMP_SCRIPT"
-          chmod +x "$TEMP_SCRIPT"
-          COMMAND_ARG="-c \"$(cat $TEMP_SCRIPT | tr '\n' ' ')\""
-        else
-          # Without entrypoint, keep original conversion
-          # Replace newlines with semicolons for proper command execution
-          COMMAND=$(echo "$RUN_COMMAND" | tr '\n' ';')
-        fi
+        # Process the command properly
+        COMMAND=""
+        while IFS= read -r line || [ -n "$line" ]; do
+          [ -n "$line" ] && COMMAND="${COMMAND}${line};"
+        done <<< "$RUN_COMMAND"
         
         echo "Running command in container..."
         echo "Image: $IMAGE"
         echo "Working directory: $WORKING_DIR"
+        echo "Command: $COMMAND"
         if [ ! -z "$ENTRYPOINT" ]; then
           echo "Entrypoint: $ENTRYPOINT"
         fi
         
         if [ ! -z "$ENTRYPOINT" ]; then
-          CMD="podman run --rm -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/$WORKING_DIR $PODMAN_ARGS $ENTRYPOINT_ARGS $IMAGE $COMMAND_ARG"
+          CMD="podman run --rm -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/$WORKING_DIR $PODMAN_ARGS $ENTRYPOINT_ARGS $IMAGE -c \"$COMMAND\""
         else
-          CMD="podman run --rm -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/$WORKING_DIR $PODMAN_ARGS $IMAGE $COMMAND"
+          CMD="podman run --rm -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/$WORKING_DIR $PODMAN_ARGS $IMAGE \"$COMMAND\""
         fi
         
         echo "Executing: $CMD"
