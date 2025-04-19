@@ -1,13 +1,13 @@
 name: 'Podman Action'
-description: 'Run commands in any container environment using Podman'
+description: 'Run commands in a container using Podman'
+
 inputs:
   image:
-    description: 'Container image to use (e.g., fedora:latest, ubuntu:22.04, etc.)'
+    description: 'Container image to use'
     required: true
-    default: 'fedora:latest'
   run:
-    description: 'Shell command to execute in the container'
-    required: false
+    description: 'Array of arguments to pass to the container runtime'
+    required: true
   working-directory:
     description: 'Working directory where commands will be executed'
     required: false
@@ -19,78 +19,13 @@ inputs:
   podman-args:
     description: 'Additional arguments to pass to podman run command'
     required: false
+
 outputs:
   stdout:
     description: 'Standard output of the command'
   exit-code:
     description: 'Exit code of the command'
+
 runs:
-  using: 'composite'
-  steps:
-    - name: Run in Podman Container
-      shell: bash
-      run: |
-        # Set up variables
-        IMAGE="${{ inputs.image }}"
-        ENTRYPOINT="${{ inputs.entrypoint }}"
-        PODMAN_ARGS="${{ inputs.podman-args }}"
-        WORKING_DIR="${{ inputs.working-directory }}"
-        RUN_COMMAND="${{ inputs.run }}"
-        
-        # Create temporary file for output capture
-        STDOUT_FILE=$(mktemp)
-        
-        # Handle entrypoint override
-        ENTRYPOINT_ARGS=""
-        if [ ! -z "$ENTRYPOINT" ]; then
-          ENTRYPOINT_ARGS="--entrypoint $ENTRYPOINT"
-        fi
-        
-        # Process the command properly
-        COMMAND=""
-        while IFS= read -r line || [ -n "$line" ]; do
-          [ -n "$line" ] && COMMAND="${COMMAND}${line};"
-        done <<< "$RUN_COMMAND"
-        COMMAND="${COMMAND%;}"
-        
-        echo "Running command in container..."
-        echo "Image: $IMAGE"
-        echo "Working directory: $WORKING_DIR"
-        echo "Command: $COMMAND"
-        if [ ! -z "$ENTRYPOINT" ]; then
-          echo "Entrypoint: $ENTRYPOINT"
-        fi
-        
-        if [ ! -z "$ENTRYPOINT" ]; then
-          CMD="podman run --rm -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/$WORKING_DIR $PODMAN_ARGS $ENTRYPOINT_ARGS $IMAGE -c \"$COMMAND\""
-        else
-          CMD="podman run --rm -v ${{ github.workspace }}:${{ github.workspace }} -w ${{ github.workspace }}/$WORKING_DIR $PODMAN_ARGS $IMAGE \"$COMMAND\""
-        fi
-        
-        echo "Executing: $CMD"
-        
-        # Execute the command using eval to preserve quotes
-        eval $CMD | tee $STDOUT_FILE
-        
-        EXIT_CODE=${PIPESTATUS[0]}
-        
-        # Clean up
-        if [ ! -z "$ENTRYPOINT" ]; then
-          rm -f "$TEMP_SCRIPT"
-        fi
-        
-        # Set outputs
-        echo "exit-code=$EXIT_CODE" >> $GITHUB_OUTPUT
-        
-        echo "stdout<<EOF" >> $GITHUB_OUTPUT
-        cat $STDOUT_FILE >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-        
-        # Clean up
-        rm -f $STDOUT_FILE
-        
-        # Return appropriate exit code
-        if [ "$EXIT_CODE" != "0" ]; then
-          echo "Command failed with exit code $EXIT_CODE"
-          exit $EXIT_CODE
-        fi
+  using: 'node20'
+  main: 'action.js'
